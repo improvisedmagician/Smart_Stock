@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - smartstock-net
+
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_DB}
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongo/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - smartstock-net
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - smartstock-net
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
+    env_file: .env
+    depends_on:
+      - postgres
+      - mongodb
+      - rabbitmq
+    networks:
+      - smartstock-net
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - smartstock-net
+
+networks:
+  smartstock-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  rabbitmq_data:
